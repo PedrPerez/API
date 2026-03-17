@@ -11,15 +11,20 @@ if (!$id) {
 }
 
 try {
-    // 1. Buscar sugestões do questionário mestre
-    $stmtS = $pdo->prepare("SELECT sugestoes_comentarios FROM tbl_questionarios WHERE id_questionario = ?");
+    // 1. Buscar dados mestres (Unidade, Data e Sugestões)
+    $stmtS = $pdo->prepare("SELECT cod_unidade, data, sugestoes_comentarios FROM tbl_questionarios WHERE id_questionario = ?");
     $stmtS->execute([$id]);
-    $sugestoes = $stmtS->fetchColumn();
+    $mestre = $stmtS->fetch(PDO::FETCH_ASSOC);
 
-    // 2. Buscar indicadores, respostas e o título da pergunta (tbl_questoes)
-    // Fazemos o JOIN com tbl_indicadores para o texto do item e tbl_questoes para o título do grupo
+    if (!$mestre) {
+        echo json_encode(["erro" => "Questionário não encontrado"]);
+        exit;
+    }
+
+    // 2. Buscar indicadores e as respostas dadas
     $sql = "SELECT 
-                r.*, 
+                r.id_indicador,
+                r.muito_bom, r.bom, r.aceitavel, r.mau,
                 i.descricao AS indicador_texto, 
                 q.id AS id_pergunta,
                 q.descricao AS pergunta_titulo
@@ -33,7 +38,7 @@ try {
     $stmtR->execute([$id]);
     $dadosRaw = $stmtR->fetchAll(PDO::FETCH_ASSOC);
 
-    // 3. Agrupar os dados por Pergunta para o Estilo Acordião
+    // 3. Agrupar os dados para o React
     $respostasAgrupadas = [];
     foreach ($dadosRaw as $row) {
         $pId = $row['id_pergunta'];
@@ -46,27 +51,22 @@ try {
             ];
         }
 
-        // Determinar qual escala foi marcada para facilitar o React (opcional, mas ajuda)
-        $valorMarcado = '';
-        if ($row['muito_bom']) $valorMarcado = 'muito_bom';
-        else if ($row['bom']) $valorMarcado = 'bom';
-        else if ($row['aceitavel']) $valorMarcado = 'aceitavel';
-        else if ($row['mau']) $valorMarcado = 'mau';
-
         $respostasAgrupadas[$pId]['indicadores'][] = [
+            "id_indicador" => $row['id_indicador'], // Importante para o React mapear a resposta
             "texto" => $row['indicador_texto'],
-            "valor" => $valorMarcado,
-            // Mantemos os originais caso prefiras usar as classes diretamente
-            "muito_bom" => $row['muito_bom'],
-            "bom" => $row['bom'],
-            "aceitavel" => $row['aceitavel'],
-            "mau" => $row['mau']
+            "muito_bom" => (int)$row['muito_bom'],
+            "bom" => (int)$row['bom'],
+            "aceitavel" => (int)$row['aceitavel'],
+            "mau" => (int)$row['mau']
         ];
     }
 
+    // 4. Retorno estruturado
     echo json_encode([
-        "sugestoes" => $sugestoes,
-        "respostas_agrupadas" => array_values($respostasAgrupadas) // Reset das chaves para array simples
+        "cod_unidade" => $mestre['cod_unidade'],
+        "data" => $mestre['data'],
+        "sugestoes" => $mestre['sugestoes_comentarios'],
+        "respostas_agrupadas" => array_values($respostasAgrupadas)
     ]);
 
 } catch (Exception $e) {

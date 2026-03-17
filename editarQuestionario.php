@@ -1,24 +1,20 @@
 <?php
-// 1. Configuração de Headers para comunicação com React
 header("Access-Control-Allow-Origin: http://localhost:3000");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Content-Type: application/json; charset=UTF-8");
 
-// Responde a preflight do navegador
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
-// Desativar erros HTML para não corromper o JSON
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
 try {
     require_once 'config.php';
 
-    // Obter dados do React
     $json = file_get_contents("php://input");
     $dados = json_decode($json, true);
 
@@ -26,11 +22,8 @@ try {
         throw new Exception("ID do questionário não fornecido.");
     }
 
-    // Iniciar Transação
     $pdo->beginTransaction();
 
-    // 2. Atualizar Tabela Principal (tbl_questionarios)
-    // Importante: :unidade deve receber o ID numérico da unidade
     $sqlPrincipal = "UPDATE tbl_questionarios 
                      SET cod_unidade = :unidade, 
                          data = :data, 
@@ -38,8 +31,6 @@ try {
                      WHERE id_questionario = :id";
 
     $stmt = $pdo->prepare($sqlPrincipal);
-    
-    // Execução com mapeamento direto dos dados
     $stmt->execute([
         ':unidade'   => $dados['unidade'], 
         ':data'      => $dados['data'],
@@ -47,12 +38,9 @@ try {
         ':id'        => $dados['id_questionario']
     ]);
 
-    // 3. Gerir Respostas (tbl_questionarios_registos)
-    // Primeiro removemos as antigas para evitar duplicados ou conflitos
     $stmtDelete = $pdo->prepare("DELETE FROM tbl_questionarios_registos WHERE id_questionario = ?");
     $stmtDelete->execute([$dados['id_questionario']]);
 
-    // Depois inserimos as novas respostas vindas do formulário
     $sqlRegisto = "INSERT INTO tbl_questionarios_registos 
                    (id_questionario, id_indicador, muito_bom, bom, aceitavel, mau)
                    VALUES (:id_q, :id_ind, :mb, :b, :a, :m)";
@@ -74,7 +62,6 @@ try {
         }
     }
 
-    // Confirmar alterações na BD
     $pdo->commit();
 
     echo json_encode([
@@ -83,7 +70,6 @@ try {
     ]);
 
 } catch (Exception $e) {
-    // Reverter em caso de erro para manter integridade
     if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
