@@ -19,7 +19,7 @@ try {
     }
 
     $sql = "SELECT iduser, username, password, nome FROM tbl_users 
-            WHERE username = :user AND activo = 1 LIMIT 1";
+            WHERE username = :user AND activo = 1 AND idcategoria = 1 LIMIT 1";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':user' => $user]);
