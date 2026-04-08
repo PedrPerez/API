@@ -6,7 +6,6 @@ header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers
 
 require_once 'config.php';
 
-// Pegar nos dados enviados via URLSearchParams ou JSON
 $username   = $_POST['username'] ?? null;
 $password   = $_POST['password'] ?? null;
 $nome       = $_POST['nome'] ?? null;
@@ -26,7 +25,7 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         ':username'    => $username,
-        ':password'    => $password, // Nota: Idealmente usarias password_hash
+        ':password'    => $password,
         ':nome'        => $nome,
         ':idcategoria' => $idcategoria,
         ':activo'      => $activo,
