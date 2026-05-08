@@ -1,30 +1,35 @@
 <?php
 header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: POST");
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
-
+header("Access-Control-Allow-Headers: Content-Type");
+header("Content-Type: application/json; charset=UTF-8");
 require_once 'config.php';
 
 $iduser = $_POST['iduser'] ?? null;
-$novoStatus = isset($_POST['activo']) ? intval($_POST['activo']) : null;
+$activo = $_POST['activo'] ?? null; // 0 ou 1
 
-if ($iduser === null || $novoStatus === null) {
-    echo json_encode(["status" => "erro", "mensagem" => "Dados insuficientes."]);
-    exit;
-}
+if ($iduser !== null && $activo !== null) {
+    try {
+        // --- SEGURANÇA: Verificar se é Admin ---
+        $stmtCheck = $pdo->prepare("SELECT idcategoria FROM tbl_users WHERE iduser = ?");
+        $stmtCheck->execute([$iduser]);
+        $user = $stmtCheck->fetch();
 
-try {
-    $sql = "UPDATE tbl_users SET activo = :activo WHERE iduser = :iduser";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        ':activo' => $novoStatus,
-        ':iduser' => $iduser
-    ]);
+        // Se for Admin e estiverem a tentar colocar como Inativo (0)
+        if ($user && (int)$user['idcategoria'] === 1 && (int)$activo === 0) {
+            echo json_encode(["status" => "erro", "mensagem" => "Segurança: Um Administrador não pode ser desativado."]);
+            exit;
+        }
+        // ---------------------------------------
 
-    echo json_encode(["status" => "sucesso", "novoStatus" => $novoStatus]);
+        $stmt = $pdo->prepare("UPDATE tblUsers SET activo = ? WHERE iduser = ?");
+        $stmt->execute([$activo, $iduser]);
 
-} catch (PDOException $e) {
-    echo json_encode(["status" => "erro", "mensagem" => $e->getMessage()]);
+        echo json_encode(["status" => "sucesso"]);
+    } catch (PDOException $e) {
+        echo json_encode(["status" => "erro", "mensagem" => $e->getMessage()]);
+    }
+} else {
+    echo json_encode(["status" => "erro", "mensagem" => "Parâmetros inválidos"]);
 }
 ?>
