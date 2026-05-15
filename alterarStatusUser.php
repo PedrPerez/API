@@ -6,23 +6,23 @@ header("Content-Type: application/json; charset=UTF-8");
 require_once 'config.php';
 
 $iduser = $_POST['iduser'] ?? null;
-$activo = $_POST['activo'] ?? null; // 0 ou 1
+$activo = $_POST['activo'] ?? null; 
 
 if ($iduser !== null && $activo !== null) {
     try {
-        // --- SEGURANÇA: Verificar se é Admin ---
+        // 1. Verificar categoria antes de mudar o status
         $stmtCheck = $pdo->prepare("SELECT idcategoria FROM tbl_users WHERE iduser = ?");
         $stmtCheck->execute([$iduser]);
         $user = $stmtCheck->fetch();
 
-        // Se for Admin e estiverem a tentar colocar como Inativo (0)
-        if ($user && (int)$user['idcategoria'] === 1 && (int)$activo === 0) {
-            echo json_encode(["status" => "erro", "mensagem" => "Segurança: Um Administrador não pode ser desativado."]);
+        // Bloqueia se for Admin (ID 1) e estiverem a tentar desativar (0)
+        if ($user && intval($user['idcategoria']) === 1 && intval($activo) === 0) {
+            echo json_encode(["status" => "erro", "mensagem" => "Não pode desativar um Administrador."]);
             exit;
         }
-        // ---------------------------------------
 
-        $stmt = $pdo->prepare("UPDATE tblUsers SET activo = ? WHERE iduser = ?");
+        // 2. Executa a atualização
+        $stmt = $pdo->prepare("UPDATE tbl_users SET activo = ? WHERE iduser = ?");
         $stmt->execute([$activo, $iduser]);
 
         echo json_encode(["status" => "sucesso"]);
@@ -30,6 +30,5 @@ if ($iduser !== null && $activo !== null) {
         echo json_encode(["status" => "erro", "mensagem" => $e->getMessage()]);
     }
 } else {
-    echo json_encode(["status" => "erro", "mensagem" => "Parâmetros inválidos"]);
+    echo json_encode(["status" => "erro", "mensagem" => "Faltam parametros: iduser ou activo"]);
 }
-?>
